@@ -29,4 +29,6 @@ Production-ready, minimal, and hardened IPv4 and IPv6 Netfilter firewall ruleset
 ```text
 ├── rules.v4        # IPv4 Netfilter ruleset
 ├── rules.v6        # IPv6 Netfilter ruleset
-└── README.md       # Documentation
+├── README.md       # Documentation
+└── LICENSE         # Lisense
+```
