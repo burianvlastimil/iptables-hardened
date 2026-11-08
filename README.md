@@ -36,3 +36,53 @@ Production-ready, minimal, and hardened IPv4 and IPv6 Netfilter firewall ruleset
 ├── README.md       # Documentation
 └── LICENSE         # Lisense
 ```
+
+## 🚀 Installation & Deployment
+
+1. Prerequisites
+
+Ensure `iptables` and its persistent package handlers are installed on your system (e.g., Debian/Ubuntu/LMDE):
+
+```bash
+sudo apt update && sudo apt install iptables-persistent
+```
+
+2. Place Configuration Files
+
+Copy `rules.v4` and `rules.v6` to your system's configuration directory, e.g.:
+
+```bash
+sudo cp -i rules.v4 /etc/iptables/rules.v4
+sudo cp -i rules.v6 /etc/iptables/rules.v6
+```
+
+3. Syntax Testing
+
+Always verify the syntax of your rulesets before applying them to prevent locking yourself out of remote management, especially tripple-check your SSH rules:
+
+```bash
+sudo iptables-restore --test /etc/iptables/rules.v4
+sudo ip6tables-restore --test /etc/iptables/rules.v6
+```
+
+4. Applying the Rules
+
+Load the rules into the running Linux kernel:
+
+```bash
+sudo iptables-restore /etc/iptables/rules.v4
+sudo ip6tables-restore /etc/ip6tables/rules.v6
+```
+
+5. Verification 🔍
+
+To verify that your firewall rules are active, loaded correctly, and dropping unauthorized traffic, check the kernel packet counters and ruleset status:
+
+```bash
+sudo iptables -L -v -n
+sudo ip6tables -L -v -n
+```
+
+## 📜 License
+
+This project is open-source and available under the MIT License, read the LICENSE file for author's name and email.
