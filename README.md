@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="iptables-hardened.jpg" alt="iptables-hardened Banner" width="100%">
+</p>
+
 # iptables-hardened
 
 Production-ready, minimal, and hardened IPv4 and IPv6 Netfilter firewall rulesets designed for modern Linux environments. Built on a strict **Zero-Trust** posture with default-drop policies, stateful inspection, and precise local subnet isolation.
