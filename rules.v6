@@ -1,0 +1,74 @@
+# ========================================================
+# /etc/iptables/rules.v6 - Netfilter IPv6 Firewall Ruleset
+# Copyright Vlastimil Burian under MIT license 2026-Nov-08
+# ========================================================
+
+
+*filter
+# DEFAULT POLICIES
+:INPUT      DROP      [0:0]
+:FORWARD    DROP      [0:0]
+:OUTPUT     ACCEPT    [0:0]
+
+
+# LOOPBACK & ANTI-SPOOFING
+--append INPUT --in-interface lo --match comment --comment "Allow loopback" --jump ACCEPT
+--append INPUT --destination ::1/128 ! --in-interface lo --match comment --comment "Drop loopback spoofing attempts" --jump DROP
+
+
+# STATEFUL INSPECTION
+--append INPUT --match conntrack --ctstate ESTABLISHED,RELATED --match comment --comment "Allow established and related traffic" --jump ACCEPT
+
+
+# INVALID PACKETS
+--append INPUT --match conntrack --ctstate INVALID --match comment --comment "Drop invalid packets" --jump DROP
+
+
+# TCP SANITY CHECK (ON PUBLIC SERVERS, CHANGE TO DROP)
+--append INPUT --match conntrack --ctstate NEW --ctproto tcp --protocol tcp ! --syn --match comment --comment "Reject new non-SYN packets" --jump REJECT --reject-with tcp-reset
+
+
+# ICMPv6 ERRORS - ESSENTIAL FOR IPv6
+--append INPUT --protocol icmpv6 --icmpv6-type 1 --match comment --comment "Destination Unreachable" --jump ACCEPT
+--append INPUT --protocol icmpv6 --icmpv6-type 2 --match comment --comment "Packet Too Big (Path MTU Discovery)" --jump ACCEPT
+--append INPUT --protocol icmpv6 --icmpv6-type 3 --match comment --comment "Time Exceeded" --jump ACCEPT
+--append INPUT --protocol icmpv6 --icmpv6-type 4 --match comment --comment "Parameter Problem" --jump ACCEPT
+
+
+# ICMPv6 ECHO REQUEST - PING
+--append INPUT --protocol icmpv6 --icmpv6-type 128 --match limit --limit 1/second --limit-burst 3 --match comment --comment "Allow rate-limited IPv6 ping" --jump ACCEPT
+
+
+# ICMPv6 ROUTER & NEIGHBOR DISCOVERY WITH HOP LIMIT CHECK
+--append INPUT --protocol icmpv6 --icmpv6-type 133 --match hl --hl-eq 255 --match comment --comment "Allow Router Solicitation"    --jump ACCEPT
+--append INPUT --protocol icmpv6 --icmpv6-type 134 --match hl --hl-eq 255 --match comment --comment "Allow Router Advertisement"   --jump ACCEPT
+--append INPUT --protocol icmpv6 --icmpv6-type 135 --match hl --hl-eq 255 --match comment --comment "Allow Neighbor Solicitation"  --jump ACCEPT
+--append INPUT --protocol icmpv6 --icmpv6-type 136 --match hl --hl-eq 255 --match comment --comment "Allow Neighbor Advertisement" --jump ACCEPT
+
+
+# DHCPv6 CLIENT
+--append INPUT --match conntrack --ctstate NEW --ctproto udp --protocol udp --source fe80::/10 --destination-port 546 --match comment --comment "Allow DHCPv6 client" --jump ACCEPT
+
+
+# SSH LINK-LOCAL ONLY ON DEFAULT PORT (WITH RATE LIMIT)
+--append INPUT --match conntrack --ctstate NEW --ctproto tcp --protocol tcp --syn --source fe80::/10 --destination-port 22 --match recent --update --seconds 60 --hitcount 4 --name SSH_LIMIT_V6 --match comment --comment "Watch over SSH: 3 connections per minute allowed per IP, all above we drop" --jump DROP
+--append INPUT --match conntrack --ctstate NEW --ctproto tcp --protocol tcp --syn --source fe80::/10 --destination-port 22 --match recent --set --name SSH_LIMIT_V6 --match comment --comment "Allow SSH from Link-Local subnet only, if within connection limits" --jump ACCEPT
+
+
+# NFS (NETWORK FILE SYSTEM) CONNECTIVITY
+# Allow NFS (Network File System) communication between NFS clients and the NFS server over TCP port 2049,
+# required for shared filesystem access. Reference: RFC 7530, Section 3.1 and RFC 8881, Section 2.9.3.
+--append INPUT --match conntrack --ctstate NEW --ctproto tcp --protocol tcp --syn --source fe80::/10 --destination-port 2049 --match comment --comment "NFS connectivity" --jump ACCEPT
+
+
+# LAN FILE SHARING WITH LocalSend
+--append INPUT --match conntrack --ctstate NEW --ctproto tcp --protocol tcp --syn --source fe80::/10 --destination-port 53317 --match comment --comment "Allow LocalSend transfers [TCP]" --jump ACCEPT
+--append INPUT --match conntrack --ctstate NEW --ctproto udp --protocol udp       --source fe80::/10 --destination-port 53317 --match comment --comment "Allow LocalSend discovery [UDP]" --jump ACCEPT
+
+
+# TORRENTING OVER PURE IPv6 WITH qBittorrent
+--append INPUT --match conntrack --ctstate NEW --ctproto tcp --protocol tcp --syn --destination 2a02:768:7c1e:312e::c00/128 --destination-port 57961 --match comment --comment "qBittorrent incoming connections on reserved IPv6 [TCP]" --jump ACCEPT
+--append INPUT --match conntrack --ctstate NEW --ctproto udp --protocol udp       --destination 2a02:768:7c1e:312e::c00/128 --destination-port 57961 --match comment --comment "qBittorrent incoming connections on reserved IPv6 [UDP]" --jump ACCEPT
+
+
+COMMIT
