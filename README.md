@@ -61,8 +61,8 @@ sudo cp -i rules.v6 /etc/iptables/rules.v6
 Always verify the syntax of your rulesets before applying them to prevent locking yourself out of remote management, especially tripple-check your SSH rules:
 
 ```bash
-sudo iptables-restore --test /etc/iptables/rules.v4
-sudo ip6tables-restore --test /etc/iptables/rules.v6
+sudo iptables-restore --test /etc/iptables/rules.v4 && echo OK
+sudo ip6tables-restore --test /etc/iptables/rules.v6 && echo OK
 ```
 
 4. Applying the Rules

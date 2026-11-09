@@ -1,43 +1,45 @@
-# ========================================================
-# /etc/iptables/rules.v4 - Netfilter IPv4 Firewall Ruleset
-# Copyright Vlastimil Burian under MIT license 2026-Nov-08
-# ========================================================
+############################################################
+# /etc/iptables/rules.v4 - Netfilter IPv4 Firewall Ruleset #
+# Copyright Vlastimil Burian under MIT license 2026-Nov-09 #
+############################################################
 
 *filter
+
 # DEFAULT POLICIES
 :INPUT      DROP      [0:0]
 :FORWARD    DROP      [0:0]
 :OUTPUT     ACCEPT    [0:0]
 
 # LOOPBACK & ANTI-SPOOFING
---append INPUT --in-interface lo --match comment --comment "Allow loopback" --jump ACCEPT
---append INPUT --source 127.0.0.0/8 ! --in-interface lo --match comment --comment "Drop loopback spoofing attempts" --jump DROP
+--append INPUT   --in-interface lo                           --match comment --comment "Allow loopback"                  --jump ACCEPT
+--append INPUT ! --in-interface lo --source      127.0.0.1/8 --match comment --comment "Drop loopback source spoof"      --jump DROP
+--append INPUT ! --in-interface lo --destination 127.0.0.1/8 --match comment --comment "Drop loopback destination spoof" --jump DROP
 
 # STATEFUL INSPECTION
---append INPUT --match conntrack --ctstate ESTABLISHED,RELATED --match comment --comment "Allow established traffic" --jump ACCEPT
+--append INPUT --match conntrack --ctstate RELATED,ESTABLISHED --match comment --comment "Allow established traffic" --jump ACCEPT
 
 # INVALID PACKETS
 --append INPUT --match conntrack --ctstate INVALID --match comment --comment "Drop invalid packets" --jump DROP
 
 # TCP SANITY CHECK
---append INPUT --match conntrack --ctstate NEW --ctproto tcp --protocol tcp ! --syn --match comment --comment "Reject non-SYN packets" --jump REJECT --reject-with tcp-reset
+--append INPUT --match conntrack --ctstate NEW --ctproto tcp --protocol tcp ! --syn --match comment --comment "Drop non-SYN packets" --jump DROP
 
-# ICMP PING (RATE LIMITED)
---append INPUT --protocol icmp --icmp-type echo-request --match limit --limit 1/sec --limit-burst 3 --match comment --comment "Allow ICMP Echo Request (Ping), rate-limited" --jump ACCEPT
+# SSH ON DEFAULT PORT (RATE-LIMITED)
+--append INPUT --match conntrack --ctstate NEW --ctproto tcp --protocol tcp --syn --source 192.168.0.0/24 --destination-port 22 --match recent --update --seconds 60 --hitcount 4 --name SSH_LIMIT_V4 --match comment --comment "3 SSH connections per minute allowed per IP" --jump DROP
+--append INPUT --match conntrack --ctstate NEW --ctproto tcp --protocol tcp --syn --source 192.168.0.0/24 --destination-port 22 --match recent --set --name SSH_LIMIT_V4 --match comment --comment "Allow SSH on default port, if within connections limit" --jump ACCEPT
 
-# ICMP ESSENTIAL ERRORS
---append INPUT --protocol icmp --icmp-type destination-unreachable --match comment --comment "Allow ICMP Destination Unreachable" --jump ACCEPT
---append INPUT --protocol icmp --icmp-type time-exceeded --match comment --comment "Allow ICMP Time Exceeded" --jump ACCEPT
-
-# SSH ON DEFAULT PORT (WITH RATE LIMIT)
---append INPUT --match conntrack --ctstate NEW --ctproto tcp --protocol tcp --syn --source 192.168.0.0/24 --destination-port 22 --match recent --update --seconds 60 --hitcount 4 --name SSH_LIMIT --match comment --comment "Watch over SSH: 3 connections per minute allowed per IP, all above we drop" --jump DROP
---append INPUT --match conntrack --ctstate NEW --ctproto tcp --protocol tcp --syn --source 192.168.0.0/24 --destination-port 22 --match recent --set --name SSH_LIMIT --match comment --comment "Allow SSH on default port, if within connections limit" --jump ACCEPT
-
-# NFS (NETWORK FILE SYSTEM) CONNECTIVITY - RESTRICTED TO LOCAL LAN
---append INPUT --match conntrack --ctstate NEW --ctproto tcp --protocol tcp --syn --source 192.168.0.0/24 --destination-port 2049 --match comment --comment "Allow NFS from local LAN only" --jump ACCEPT
+# NFS (NETWORK FILE SYSTEM) CONNECTIVITY
+--append INPUT --match conntrack --ctstate NEW --ctproto tcp --protocol tcp --syn --source 192.168.0.0/24 --destination-port 2049 --match comment --comment "Allow NFS on LAN" --jump ACCEPT
 
 # LAN FILE SHARING WITH LocalSend
---append INPUT --match conntrack --ctstate NEW --ctproto tcp --protocol tcp --syn --source 192.168.0.0/24 --destination-port 53317 --match comment --comment "LocalSend: File Transfer" --jump ACCEPT
---append INPUT --match conntrack --ctstate NEW --ctproto udp --protocol udp       --source 192.168.0.0/24 --destination-port 53317 --match comment --comment "LocalSend: Device Discovery" --jump ACCEPT
+--append INPUT --match conntrack --ctstate NEW --ctproto tcp --protocol tcp --syn --source 192.168.0.0/24 --destination-port 53317 --match comment --comment "LocalSend - File Transfer"    --jump ACCEPT
+--append INPUT --match conntrack --ctstate NEW --ctproto udp --protocol udp       --source 192.168.0.0/24 --destination-port 53317 --match comment --comment "LocalSend - Device Discovery" --jump ACCEPT
+
+# ICMP PING (RATE-LIMITED)
+--append INPUT --protocol icmp --icmp-type echo-request --match limit --limit 1/sec --limit-burst 2 --match comment --comment "Allow ICMP ping - rate-limited" --jump ACCEPT
+
+# ICMP ESSENTIAL ERRORS
+--append INPUT --protocol icmp --icmp-type destination-unreachable --match comment --comment "ICMP error - Destination Unreachable" --jump ACCEPT
+--append INPUT --protocol icmp --icmp-type time-exceeded           --match comment --comment "ICMP error - Time Exceeded"           --jump ACCEPT
 
 COMMIT
